@@ -34,7 +34,7 @@ CORS(app,
          "http://127.0.0.1:5000", 
          "http://localhost:3000", 
          "http://127.0.0.1:3000",
-         "https://your-frontend-app.onrender.com"  # Add your actual Render frontend URL
+         "https://melodic-taiyaki-3cdf72.netlify.app/"  # Add your actual Render frontend URL
      ],
      allow_headers=["Content-Type", "Authorization"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
