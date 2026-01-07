@@ -29,7 +29,7 @@ const Instructions = ({ user, onStartExam, onLogout }) => {
     setError('');
 
     try {
-      const response = await fetch('${API_URL}/api/start-quiz', {
+      const response = await fetch(`${API_URL}/api/start-quiz`, {
         method: 'POST',
         credentials: 'include',
         headers: {
