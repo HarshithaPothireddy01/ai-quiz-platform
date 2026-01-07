@@ -92,7 +92,7 @@ const Login = ({ onLogin }) => {
     try {
       const response = await fetch(`${API_URL}/api/signup`, {
         method: 'POST',
-        credentials: 'include',
+ 
         headers: {
           'Content-Type': 'application/json',
         },
@@ -138,7 +138,7 @@ const Login = ({ onLogin }) => {
     try {
       const response = await fetch(`${API_URL}/api/forgot-password`, {
         method: 'POST',
-        credentials: 'include',
+  
         headers: {
           'Content-Type': 'application/json',
         },
@@ -176,7 +176,7 @@ const Login = ({ onLogin }) => {
     try {
       const response = await fetch(`${API_URL}/api/reset-password`, {
         method: 'POST',
-        credentials: 'include',
+  
         headers: {
           'Content-Type': 'application/json',
         },
