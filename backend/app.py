@@ -26,20 +26,16 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-this-in-production")
 
-# Configure CORS to allow credentials from React frontend on port 5000
+# Configure CORS to allow your Netlify frontend
 CORS(app, 
-     supports_credentials=True,
      origins=[
-         "http://localhost:5000", 
-         "http://127.0.0.1:5000", 
-         "http://localhost:3000", 
-         "http://127.0.0.1:3000",
-          "https://timely-cheesecake-40f3a8.netlify.app/"
-         # Add your actual Render frontend URL
+         "https://timely-cheesecake-40f3a8.netlify.app",
+         "http://localhost:3000"  # for local development
      ],
+     supports_credentials=True,
      allow_headers=["Content-Type", "Authorization"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+)
 # ==================== EMAIL CONFIGURATION ====================
 EMAIL = os.getenv('EMAIL')
 APP_PASSWORD = os.getenv('APP_PASSWORD')
