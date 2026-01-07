@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 
 const ExamInterface = ({ user, examData, onComplete }) => {
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -73,7 +73,7 @@ const ExamInterface = ({ user, examData, onComplete }) => {
     try {
       // If going to next question and haven't submitted current answer
       if (targetQuestion === questionNumber + 1 && selectedAnswer) {
-        const response = await fetch(`${API_URL}/api/answer/${examData.quiz_id}`, {
+        const response = await fetch(`/api/answer/${examData.quiz_id}`, {
           method: 'POST',
           credentials: 'include',
           headers: {
@@ -157,7 +157,7 @@ const ExamInterface = ({ user, examData, onComplete }) => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/submit/${examData.quiz_id}`, {
+      const response = await fetch(`${/api/submit/${examData.quiz_id}`, {
         method: 'POST',
         credentials: 'include',
         headers: {
