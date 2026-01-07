@@ -5,7 +5,7 @@ import Instructions from './components/Instructions';
 import ExamInterface from './components/ExamInterface';
 import Results from './components/Results';
 import Analysis from './components/Analysis';
-
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 function App() {
   const [currentStep, setCurrentStep] = useState('login');
   const [user, setUser] = useState(null);
@@ -25,7 +25,7 @@ function App() {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch(`/api/current-user`, {
+      const response = await fetch(`${API_URL}/api/current-user`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -59,7 +59,7 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`/api/logout`, {
+      await fetch(`${API_URL}/api/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: {
