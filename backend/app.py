@@ -29,7 +29,7 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-this-in-producti
 # Configure CORS to allow your Netlify frontend
 CORS(app, 
      origins=[
-         "https://timely-cheesecake-40f3a8.netlify.app",
+         "https://quizapplic.netlify.app/",
          "http://localhost:3000"  # for local development
      ],
      supports_credentials=True,
