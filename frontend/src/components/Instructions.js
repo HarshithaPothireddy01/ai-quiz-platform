@@ -29,16 +29,15 @@ const Instructions = ({ user, onStartExam, onLogout }) => {
     setError('');
 
     try {
+      const token = localStorage.getItem('token');
+
       const response = await fetch(`${API_URL}/api/start-quiz`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          topic: topic.trim(),
-          num_questions: numQuestions,
-        }),
+        body: JSON.stringify({ topic, num_questions: numQuestions })
       });
 
       const data = await response.json();
