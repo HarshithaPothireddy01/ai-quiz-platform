@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const Quiz = ({ user, quizData, onComplete }) => {
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -26,7 +25,7 @@ const Quiz = ({ user, quizData, onComplete }) => {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/api/answer/${quizData.quiz_id}`, {
+      const response = await fetch(`/api/answer/${quizData.quiz_id}`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -40,7 +39,7 @@ const Quiz = ({ user, quizData, onComplete }) => {
       if (response.ok) {
         if (data.completed) {
           // submit quiz to get results
-          const submitResp = await fetch(`${API_URL}/api/submit/${quizData.quiz_id}`, {
+          const submitResp = await fetch(`/api/submit/${quizData.quiz_id}`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
