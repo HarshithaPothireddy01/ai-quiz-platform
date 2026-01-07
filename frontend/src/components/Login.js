@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 
 const Login = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -54,7 +54,7 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/api/login`, {
+      const response = await fetch(`/api/login`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -90,7 +90,7 @@ const Login = ({ onLogin }) => {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/signup`, {
+      const response = await fetch(`/api/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/api/forgot-password`, {
+      const response = await fetch(`/api/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ const Login = ({ onLogin }) => {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/reset-password`, {
+      const response = await fetch(`/api/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
