@@ -25,12 +25,14 @@ function App() {
 
   const checkAuthStatus = async () => {
     try {
+      const token = localStorage.getItem('token');
+
       const response = await fetch(`${API_URL}/api/current-user`, {
         method: 'GET',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-        },
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (response.ok) {
