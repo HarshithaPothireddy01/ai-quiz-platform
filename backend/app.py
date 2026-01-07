@@ -3,6 +3,8 @@ import json
 import uuid
 from datetime import datetime
 from decimal import Decimal
+import jwt
+from functools import wraps
 
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
@@ -94,6 +96,31 @@ def validate_password(password):
     if not any(c.isdigit() for c in password):
         return False, "Password must contain at least one number"
     return True, "Valid"
+
+def token_required(f):
+    """Decorator to check JWT token"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        
+        if not token:
+            return jsonify({"error": "Token is missing"}), 401
+        
+        try:
+            # Remove 'Bearer ' prefix if present
+            if token.startswith('Bearer '):
+                token = token[7:]
+            
+            data = jwt.decode(token, app.secret_key, algorithms=["HS256"])
+            current_user = data
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token has expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+        
+        return f(current_user, *args, **kwargs)
+    
+    return decorated
 
 def is_logged_in():
     """Check if user is logged in"""
@@ -451,7 +478,6 @@ def login():
         if not email or not password:
             return jsonify({"error": "Email and password are required"}), 400
         
-        # Get user from database
         try:
             response = users_table.get_item(Key={"email": email})
             
@@ -460,19 +486,19 @@ def login():
             
             user = response["Item"]
             
-            # Check if account is active
             if not user.get("is_active", True):
                 return jsonify({"error": "Account is deactivated"}), 403
             
-            # Verify password
             if not check_password_hash(user["password_hash"], password):
                 return jsonify({"error": "Invalid email or password"}), 401
             
-            # Create session
-            session["user_id"] = user["user_id"]
-            session["email"] = user["email"]
-            session["name"] = user["name"]
-            session.permanent = True
+            # Generate JWT token instead of session
+            token = jwt.encode({
+                'user_id': user["user_id"],
+                'email': user["email"],
+                'name': user["name"],
+                'exp': datetime.utcnow() + timedelta(days=7)
+            }, app.secret_key, algorithm="HS256")
             
             # Update last login
             users_table.update_item(
@@ -485,6 +511,7 @@ def login():
             
             return jsonify({
                 "message": "Login successful",
+                "token": token,  # Send token to frontend
                 "user": {
                     "user_id": user["user_id"],
                     "name": user["name"],
@@ -611,18 +638,16 @@ def reset_password():
 
 
 @app.route("/api/current-user", methods=["GET", "OPTIONS"])
-def current_user():
+@token_required
+def current_user(current_user):
     """Get current logged in user"""
     if request.method == "OPTIONS":
         return "", 200
     
-    if not is_logged_in():
-        return jsonify({"error": "Not authenticated"}), 401
-    
     return jsonify({
-        "user_id": session.get("user_id"),
-        "name": session.get("name"),
-        "email": session.get("email")
+        "user_id": current_user.get("user_id"),
+        "name": current_user.get("name"),
+        "email": current_user.get("email")
     }), 200
 
 # ==================== QUIZ API ====================
