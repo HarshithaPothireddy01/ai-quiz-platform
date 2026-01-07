@@ -5,7 +5,9 @@ import Instructions from './components/Instructions';
 import ExamInterface from './components/ExamInterface';
 import Results from './components/Results';
 import Analysis from './components/Analysis';
+
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 function App() {
   const [currentStep, setCurrentStep] = useState('login');
   const [user, setUser] = useState(null);
@@ -24,36 +26,36 @@ function App() {
   }, []);
 
   const checkAuthStatus = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    
-    const response = await fetch(`${API_URL}/api/current-user`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setLoading(false);
+        return;
       }
-    });
-    
-    if (response.ok) {
-      const userData = await response.json();
-      setUser(userData);
-      setCurrentStep('instructions');
-    } else {
+      
+      const response = await fetch(`${API_URL}/api/current-user`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        setCurrentStep('instructions');
+      } else {
+        localStorage.removeItem('token');
+      }
+    } catch (error) {
+      console.log('Not logged in');
       localStorage.removeItem('token');
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.log('Not logged in');
-    localStorage.removeItem('token');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -67,23 +69,12 @@ function App() {
     setCurrentStep('instructions');
   };
 
-  const handleLogout = async () => {
-    try {
-      await fetch(`${API_URL}/api/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-    } catch (error) {
-      console.log('Logout error:', error);
-    } finally {
-      setUser(null);
-      setCurrentStep('login');
-      setExamData(null);
-      setResults(null);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+    setCurrentStep('login');
+    setExamData(null);
+    setResults(null);
   };
 
   const handleStartExam = (data) => {
