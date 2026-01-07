@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content
+from sendgrid.helpers.mail import Mail, To, Personalization
 
 # ==================== LOAD ENV ====================
 load_dotenv()
@@ -313,28 +313,27 @@ Quiz Application Team
 </html>
 """
         
+        # Import required SendGrid classes
+        from sendgrid.helpers.mail import Email, Category, CustomArg
+        
         # Create SendGrid message
         message = Mail(
-            from_email=Email(EMAIL, "Quiz Application"),  # Add sender name
-            to_emails=To(user_email),
+            from_email=Email(EMAIL, "Quiz Application"),
+            to_emails=user_email,
             subject=subject,
-            plain_text_content=Content("text/plain", text_content),
-            html_content=Content("text/html", html_content)
+            plain_text_content=text_content,
+            html_content=html_content
         )
         
         # Add reply-to address
         message.reply_to = Email(EMAIL, "Quiz Support")
         
         # Set categories for tracking
-        message.category = ["quiz-results", "automated"]
+        message.add_category(Category("quiz-results"))
+        message.add_category(Category("automated"))
         
         # Add custom args for tracking
-        message.custom_arg = [
-            {
-                "key": "quiz_id",
-                "value": str(quiz_data.get('topic', 'quiz'))
-            }
-        ]
+        message.add_custom_arg(CustomArg("quiz_id", str(quiz_data.get('topic', 'quiz'))))
         
         # Send email using SendGrid
         sg = SendGridAPIClient(SENDGRID_API_KEY)
@@ -346,8 +345,6 @@ Quiz Application Team
     except Exception as e:
         print(f"❌ Error sending email: {str(e)}")
         return False, f"Failed to send email: {str(e)}"
-          
-
        
        
 
