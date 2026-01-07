@@ -34,7 +34,7 @@ CORS(app,
          "http://127.0.0.1:5000", 
          "http://localhost:3000", 
          "http://127.0.0.1:3000",
-          "http://euphonious-malasada-9fe7de.netlify.app"
+          "https://timely-cheesecake-40f3a8.netlify.app/"
          # Add your actual Render frontend URL
      ],
      allow_headers=["Content-Type", "Authorization"],
