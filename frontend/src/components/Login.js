@@ -56,17 +56,17 @@ const Login = ({ onLogin }) => {
     try {
       const response = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(loginData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
       });
-
+      
       const data = await response.json();
-
+      
       if (response.ok) {
+        // Store token in localStorage
+        localStorage.setItem('token', data.token);
         onLogin(data.user);
+      }
       } else {
         setError(data.error || 'Login failed');
       }
