@@ -25,7 +25,7 @@ function App() {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch('${API_URL}/api/current-user', {
+      const response = await fetch(`${API_URL}/api/current-user`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -59,7 +59,7 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch('${API_URL}/api/logout', {
+      await fetch(`${API_URL}/api/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: {
