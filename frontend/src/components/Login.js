@@ -57,7 +57,10 @@ const Login = ({ onLogin }) => {
       const response = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ 
+          email: loginData.email, 
+          password: loginData.password 
+        })
       });
       
       const data = await response.json();
@@ -66,7 +69,6 @@ const Login = ({ onLogin }) => {
         // Store token in localStorage
         localStorage.setItem('token', data.token);
         onLogin(data.user);
-      }
       } else {
         setError(data.error || 'Login failed');
       }
