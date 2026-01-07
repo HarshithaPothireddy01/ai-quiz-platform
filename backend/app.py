@@ -1,10 +1,8 @@
 import os
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
-import jwt
-from functools import wraps
 
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
@@ -18,9 +16,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, To, Personalization
-
 # ==================== LOAD ENV ====================
 load_dotenv()
 
@@ -28,29 +23,16 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-this-in-production")
 
-# Configure session for cross-origin requests
-app.config.update(
-    SESSION_COOKIE_SECURE=True,
-    SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='None',
-    PERMANENT_SESSION_LIFETIME=timedelta(days=7)
-)
-
-# Configure CORS to allow your Netlify frontend
+# Configure CORS to allow credentials from React frontend on port 5000
 CORS(app, 
-     origins=[
-         "https://quizapplic.netlify.app",
-         "http://localhost:3000"
-     ],
      supports_credentials=True,
+     origins=["http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],
      allow_headers=["Content-Type", "Authorization"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-)
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 # ==================== EMAIL CONFIGURATION ====================
 EMAIL = os.getenv('EMAIL')
 APP_PASSWORD = os.getenv('APP_PASSWORD')
-SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
 
 # ==================== GROQ CLIENT ====================
 try:
@@ -95,35 +77,14 @@ def validate_password(password):
         return False, "Password must contain at least one number"
     return True, "Valid"
 
-def token_required(f):
-    """Decorator to check JWT token"""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        
-        if not token:
-            return jsonify({"error": "Token is missing"}), 401
-        
-        try:
-            # Remove 'Bearer ' prefix if present
-            if token.startswith('Bearer '):
-                token = token[7:]
-            
-            data = jwt.decode(token, app.secret_key, algorithms=["HS256"])
-            current_user = data
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token has expired"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid token"}), 401
-        
-        return f(current_user, *args, **kwargs)
-    
-    return decorated
+def is_logged_in():
+    """Check if user is logged in"""
+    return "user_id" in session and "email" in session
 
 # ==================== EMAIL HELPER FUNCTION ====================
 def send_quiz_results_email(user_email, user_name, quiz_data):
     """
-    Send quiz results to user via email using SendGrid
+    Send quiz results to user via email
     
     Args:
         user_email: User's email address
@@ -134,8 +95,8 @@ def send_quiz_results_email(user_email, user_name, quiz_data):
         Tuple (success: bool, message: str)
     """
     try:
-        if not SENDGRID_API_KEY:
-            print("⚠️ SendGrid API key not configured")
+        if not EMAIL or not APP_PASSWORD:
+            print("❌ Email credentials not configured")
             return False, "Email service not configured"
         
         # Extract quiz data
@@ -145,8 +106,11 @@ def send_quiz_results_email(user_email, user_name, quiz_data):
         topic = quiz_data.get('topic', 'Unknown')
         review = quiz_data.get('review', [])
         
-        # Create subject
-        subject = f'Quiz Results - {topic}'
+        # Create email message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f'Quiz Results - {topic}'
+        msg['From'] = EMAIL
+        msg['To'] = user_email
         
         # Plain text version
         text_content = f"""
@@ -331,42 +295,24 @@ Quiz Application Team
         <p>Keep learning and improving! 🚀</p>
         <hr style="border: none; border-top: 1px solid #dee2e6; margin: 20px 0;">
         <p style="font-size: 12px;">This email was sent from the Quiz Application System</p>
-        <p style="font-size: 11px; color: #999;">
-            This is an automated message. To stop receiving quiz results, 
-            please contact support at """ + EMAIL + """
-        </p>
     </div>
 </body>
 </html>
 """
         
-        # Import required SendGrid classes
-        from sendgrid.helpers.mail import Email, Category, CustomArg
+        # Attach both versions
+        part1 = MIMEText(text_content, 'plain')
+        part2 = MIMEText(html_content, 'html')
         
-        # Create SendGrid message
-        message = Mail(
-            from_email=Email(EMAIL, "Quiz Application"),
-            to_emails=user_email,
-            subject=subject,
-            plain_text_content=text_content,
-            html_content=html_content
-        )
+        msg.attach(part1)
+        msg.attach(part2)
         
-        # Add reply-to address
-        message.reply_to = Email(EMAIL, "Quiz Support")
+        # Send email using Gmail SMTP
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(EMAIL, APP_PASSWORD)
+            server.send_message(msg)
         
-        # Set categories for tracking
-        message.add_category(Category("quiz-results"))
-        message.add_category(Category("automated"))
-        
-        # Add custom args for tracking
-        message.add_custom_arg(CustomArg("quiz_id", str(quiz_data.get('topic', 'quiz'))))
-        
-        # Send email using SendGrid
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(message)
-        
-        print(f"✅ Email sent successfully to {user_email} (Status: {response.status_code})")
+        print(f"✅ Email sent successfully to {user_email}")
         return True, "Email sent successfully"
         
     except Exception as e:
@@ -469,6 +415,7 @@ def login():
         if not email or not password:
             return jsonify({"error": "Email and password are required"}), 400
         
+        # Get user from database
         try:
             response = users_table.get_item(Key={"email": email})
             
@@ -477,19 +424,19 @@ def login():
             
             user = response["Item"]
             
+            # Check if account is active
             if not user.get("is_active", True):
                 return jsonify({"error": "Account is deactivated"}), 403
             
+            # Verify password
             if not check_password_hash(user["password_hash"], password):
                 return jsonify({"error": "Invalid email or password"}), 401
             
-            # Generate JWT token
-            token = jwt.encode({
-                'user_id': user["user_id"],
-                'email': user["email"],
-                'name': user["name"],
-                'exp': datetime.utcnow() + timedelta(days=7)
-            }, app.secret_key, algorithm="HS256")
+            # Create session
+            session["user_id"] = user["user_id"]
+            session["email"] = user["email"]
+            session["name"] = user["name"]
+            session.permanent = True
             
             # Update last login
             users_table.update_item(
@@ -502,7 +449,6 @@ def login():
             
             return jsonify({
                 "message": "Login successful",
-                "token": token,
                 "user": {
                     "user_id": user["user_id"],
                     "name": user["name"],
@@ -525,6 +471,7 @@ def logout():
     if request.method == "OPTIONS":
         return "", 200
     
+    session.clear()
     return jsonify({"message": "Logged out successfully"}), 200
 
 
@@ -628,26 +575,30 @@ def reset_password():
 
 
 @app.route("/api/current-user", methods=["GET", "OPTIONS"])
-@token_required
-def current_user(current_user):
+def current_user():
     """Get current logged in user"""
     if request.method == "OPTIONS":
         return "", 200
     
+    if not is_logged_in():
+        return jsonify({"error": "Not authenticated"}), 401
+    
     return jsonify({
-        "user_id": current_user.get("user_id"),
-        "name": current_user.get("name"),
-        "email": current_user.get("email")
+        "user_id": session.get("user_id"),
+        "name": session.get("name"),
+        "email": session.get("email")
     }), 200
 
 # ==================== QUIZ API ====================
 
 @app.route("/api/start-quiz", methods=["POST", "OPTIONS"])
-@token_required
-def start_quiz(current_user):
+def start_quiz():
     """Start a new quiz - generates random questions using AI"""
     if request.method == "OPTIONS":
         return "", 200
+    
+    if not is_logged_in():
+        return jsonify({"error": "Login required"}), 401
     
     try:
         data = request.get_json()
@@ -726,13 +677,13 @@ Make the questions diverse and challenging. Do not include any text before or af
             print(f"Groq API error: {e}")
             return jsonify({"error": f"Failed to generate questions: {str(e)}"}), 500
         
-        # Create quiz session using JWT user data
+        # Create quiz session
         quiz_id = str(uuid.uuid4())
         
         quiz_sessions[quiz_id] = {
-            "user_id": current_user["user_id"],
-            "email": current_user["email"],
-            "name": current_user["name"],
+            "user_id": session["user_id"],
+            "email": session["email"],
+            "name": session["name"],
             "topic": topic,
             "questions": questions,
             "answers": [],
@@ -864,56 +815,29 @@ def submit_quiz(quiz_id):
         
         try:
             if quiz_table is None:
-                print("⚠️ Warning: DynamoDB quiz_table is None - quiz results will not be saved")
+                print("❌ Warning: DynamoDB quiz_table is None - quiz results will not be saved")
             else:
                 quiz_table.put_item(Item=quiz_result)
                 print(f"✅ Quiz result saved to DynamoDB: {quiz_id}")
         except Exception as e:
             print(f"❌ DynamoDB save error: {e}")
+            print(f"Quiz data: {quiz_result}")
             # Continue execution even if DB save fails
         
-        # ==================== SEND EMAIL WITH TIMEOUT PROTECTION ====================
-        email_success = False
-        email_message = "Email service temporarily unavailable"
+        # ==================== SEND EMAIL WITH RESULTS ====================
+        email_data = {
+            'score': score,
+            'total_questions': total_questions,
+            'percentage': float(percentage),
+            'topic': quiz["topic"],
+            'review': review
+        }
         
-        # Try to send email but don't crash if it fails
-        try:
-            email_data = {
-                'score': score,
-                'total_questions': total_questions,
-                'percentage': float(percentage),
-                'topic': quiz["topic"],
-                'review': review
-            }
-            
-            # Set a timeout for email sending (10 seconds max)
-            import signal
-            
-            def timeout_handler(signum, frame):
-                raise TimeoutError("Email sending timed out")
-            
-            # Only use timeout on Unix systems (not Windows)
-            if hasattr(signal, 'SIGALRM'):
-                signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(10)  # 10 second timeout
-            
-            email_success, email_message = send_quiz_results_email(
-                user_email=quiz["email"],
-                user_name=quiz["name"],
-                quiz_data=email_data
-            )
-            
-            if hasattr(signal, 'SIGALRM'):
-                signal.alarm(0)  # Cancel the alarm
-                
-        except TimeoutError:
-            print(f"⏱️ Email sending timed out for {quiz['email']}")
-            email_success = False
-            email_message = "Email sending timed out - results saved in your quiz history"
-        except Exception as e:
-            print(f"❌ Email error (non-critical): {e}")
-            email_success = False
-            email_message = f"Could not send email - results saved in your quiz history"
+        email_success, email_message = send_quiz_results_email(
+            user_email=quiz["email"],
+            user_name=quiz["name"],
+            quiz_data=email_data
+        )
         
         # Clean up session
         del quiz_sessions[quiz_id]
@@ -934,11 +858,13 @@ def submit_quiz(quiz_id):
 
 
 @app.route("/api/quiz-history", methods=["GET", "OPTIONS"])
-@token_required
-def quiz_history(current_user):
+def quiz_history():
     """Get all quizzes taken by current user"""
     if request.method == "OPTIONS":
         return "", 200
+    
+    if not is_logged_in():
+        return jsonify({"error": "Login required"}), 401
     
     try:
         if quiz_table is None:
@@ -949,16 +875,16 @@ def quiz_history(current_user):
                 "message": "Database not configured"
             }), 200
         
-        # Scan for user's quizzes using JWT user data
+        # Scan for user's quizzes
         response = quiz_table.scan(
             FilterExpression="user_id = :uid",
             ExpressionAttributeValues={
-                ":uid": current_user["user_id"]
+                ":uid": session["user_id"]
             }
         )
         
         quizzes = response.get("Items", [])
-        print(f"✅ Found {len(quizzes)} quiz records for user {current_user['user_id']}")
+        print(f"✅ Found {len(quizzes)} quiz records for user {session['user_id']}")
         
         # Sort by timestamp (newest first)
         quizzes.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
@@ -1014,8 +940,7 @@ def health():
         "database": db_status,
         "database_details": db_details,
         "ai": "connected" if groq_client else "disconnected",
-        "ai_model": "openai/gpt-oss-120b",
-        "auth": "JWT"
+        "ai_model": "openai/gpt-oss-120b"
     }), 200
 
 @app.route("/", methods=["GET"])
@@ -1024,7 +949,6 @@ def home():
     return jsonify({
         "message": "AI Quiz Backend API",
         "version": "1.0.0",
-        "auth": "JWT Bearer Token",
         "ai_model": "OpenAI GPT-OSS 120B (via Groq)",
         "endpoints": {
             "auth": ["/api/signup", "/api/login", "/api/logout", "/api/forgot-password", "/api/reset-password"],
@@ -1052,14 +976,13 @@ if __name__ == "__main__":
     print(f"📍 Server URL: http://127.0.0.1:5000")
     print(f"🏥 Health Check: http://127.0.0.1:5000/health")
     print(f"🤖 AI Model: OpenAI GPT-OSS 120B (via Groq)")
-    print(f"🔐 Authentication: JWT Bearer Token")
     print("=" * 70)
     print("✅ Features:")
     print("   • Dynamic AI-generated questions using GPT-OSS 120B")
     print("   • Secure login/signup with DynamoDB")
-    print("   • JWT token-based authentication")
     print("   • Static password reset flow (no email)")
     print("   • Quiz history tracking")
+    print("   • Session-based authentication")
     print("   • Email results delivery")
     print("=" * 70)
     print("📝 API Endpoints:")
@@ -1068,11 +991,11 @@ if __name__ == "__main__":
     print("   POST /api/logout")
     print("   POST /api/forgot-password")
     print("   POST /api/reset-password")
-    print("   POST /api/start-quiz (requires JWT)")
+    print("   POST /api/start-quiz")
     print("   POST /api/answer/<quiz_id>")
     print("   POST /api/submit/<quiz_id>")
-    print("   GET  /api/quiz-history (requires JWT)")
-    print("   GET  /api/current-user (requires JWT)")
+    print("   GET  /api/quiz-history")
+    print("   GET  /api/current-user")
     print("=" * 70)
     
-    app.run(debug=False, port=5000, host="0.0.0.0")
+    app.run(debug=True, port=5000, host="0.0.0.0")
