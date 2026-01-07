@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import timedelta
 
 import boto3
 from botocore.exceptions import ClientError
@@ -23,9 +24,18 @@ from sendgrid.helpers.mail import Mail, To, Personalization
 load_dotenv()
 
 # ==================== FLASK APP ====================
+from datetime import timedelta
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-this-in-production")
 
+# Configure session for cross-origin requests
+app.config.update(
+    SESSION_COOKIE_SECURE=True,  # Required for HTTPS
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='None',  # Allow cross-site cookies
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7)
+)
 # Configure CORS to allow your Netlify frontend
 CORS(app, 
      origins=[
