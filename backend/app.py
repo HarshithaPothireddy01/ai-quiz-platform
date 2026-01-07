@@ -1,7 +1,7 @@
 import os
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 import jwt
 from functools import wraps
@@ -10,7 +10,6 @@ from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import timedelta
 
 import boto3
 from botocore.exceptions import ClientError
@@ -26,33 +25,32 @@ from sendgrid.helpers.mail import Mail, To, Personalization
 load_dotenv()
 
 # ==================== FLASK APP ====================
-from datetime import timedelta
-
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-this-in-production")
 
 # Configure session for cross-origin requests
 app.config.update(
-    SESSION_COOKIE_SECURE=True,  # Required for HTTPS
+    SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='None',  # Allow cross-site cookies
+    SESSION_COOKIE_SAMESITE='None',
     PERMANENT_SESSION_LIFETIME=timedelta(days=7)
 )
+
 # Configure CORS to allow your Netlify frontend
 CORS(app, 
      origins=[
          "https://quizapplic.netlify.app",
-         "http://localhost:3000"  # for local development
+         "http://localhost:3000"
      ],
      supports_credentials=True,
      allow_headers=["Content-Type", "Authorization"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 )
+
 # ==================== EMAIL CONFIGURATION ====================
 EMAIL = os.getenv('EMAIL')
 APP_PASSWORD = os.getenv('APP_PASSWORD')
 SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
-
 
 # ==================== GROQ CLIENT ====================
 try:
@@ -122,12 +120,7 @@ def token_required(f):
     
     return decorated
 
-def is_logged_in():
-    """Check if user is logged in"""
-    return "user_id" in session and "email" in session
-
 # ==================== EMAIL HELPER FUNCTION ====================
-# Replace the send_quiz_results_email function
 def send_quiz_results_email(user_email, user_name, quiz_data):
     """
     Send quiz results to user via email using SendGrid
@@ -379,8 +372,6 @@ Quiz Application Team
     except Exception as e:
         print(f"❌ Error sending email: {str(e)}")
         return False, f"Failed to send email: {str(e)}"
-       
-       
 
 # ==================== AUTHENTICATION API ====================
 
@@ -492,7 +483,7 @@ def login():
             if not check_password_hash(user["password_hash"], password):
                 return jsonify({"error": "Invalid email or password"}), 401
             
-            # Generate JWT token instead of session
+            # Generate JWT token
             token = jwt.encode({
                 'user_id': user["user_id"],
                 'email': user["email"],
@@ -511,7 +502,7 @@ def login():
             
             return jsonify({
                 "message": "Login successful",
-                "token": token,  # Send token to frontend
+                "token": token,
                 "user": {
                     "user_id": user["user_id"],
                     "name": user["name"],
@@ -534,7 +525,6 @@ def logout():
     if request.method == "OPTIONS":
         return "", 200
     
-    session.clear()
     return jsonify({"message": "Logged out successfully"}), 200
 
 
@@ -653,13 +643,11 @@ def current_user(current_user):
 # ==================== QUIZ API ====================
 
 @app.route("/api/start-quiz", methods=["POST", "OPTIONS"])
-def start_quiz():
+@token_required
+def start_quiz(current_user):
     """Start a new quiz - generates random questions using AI"""
     if request.method == "OPTIONS":
         return "", 200
-    
-    if not is_logged_in():
-        return jsonify({"error": "Login required"}), 401
     
     try:
         data = request.get_json()
@@ -738,13 +726,13 @@ Make the questions diverse and challenging. Do not include any text before or af
             print(f"Groq API error: {e}")
             return jsonify({"error": f"Failed to generate questions: {str(e)}"}), 500
         
-        # Create quiz session
+        # Create quiz session using JWT user data
         quiz_id = str(uuid.uuid4())
         
         quiz_sessions[quiz_id] = {
-            "user_id": session["user_id"],
-            "email": session["email"],
-            "name": session["name"],
+            "user_id": current_user["user_id"],
+            "email": current_user["email"],
+            "name": current_user["name"],
             "topic": topic,
             "questions": questions,
             "answers": [],
@@ -813,6 +801,8 @@ def submit_answer(quiz_id):
     except Exception as e:
         print(f"Submit answer error: {e}")
         return jsonify({"error": "An error occurred while submitting answer"}), 500
+
+
 @app.route("/api/submit/<quiz_id>", methods=["POST", "OPTIONS"])
 def submit_quiz(quiz_id):
     """Submit completed quiz and get results"""
@@ -941,14 +931,14 @@ def submit_quiz(quiz_id):
     except Exception as e:
         print(f"Submit quiz error: {e}")
         return jsonify({"error": "An error occurred while submitting quiz"}), 500
+
+
 @app.route("/api/quiz-history", methods=["GET", "OPTIONS"])
-def quiz_history():
+@token_required
+def quiz_history(current_user):
     """Get all quizzes taken by current user"""
     if request.method == "OPTIONS":
         return "", 200
-    
-    if not is_logged_in():
-        return jsonify({"error": "Login required"}), 401
     
     try:
         if quiz_table is None:
@@ -959,16 +949,16 @@ def quiz_history():
                 "message": "Database not configured"
             }), 200
         
-        # Scan for user's quizzes
+        # Scan for user's quizzes using JWT user data
         response = quiz_table.scan(
             FilterExpression="user_id = :uid",
             ExpressionAttributeValues={
-                ":uid": session["user_id"]
+                ":uid": current_user["user_id"]
             }
         )
         
         quizzes = response.get("Items", [])
-        print(f"✅ Found {len(quizzes)} quiz records for user {session['user_id']}")
+        print(f"✅ Found {len(quizzes)} quiz records for user {current_user['user_id']}")
         
         # Sort by timestamp (newest first)
         quizzes.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
@@ -1024,7 +1014,8 @@ def health():
         "database": db_status,
         "database_details": db_details,
         "ai": "connected" if groq_client else "disconnected",
-        "ai_model": "openai/gpt-oss-120b"
+        "ai_model": "openai/gpt-oss-120b",
+        "auth": "JWT"
     }), 200
 
 @app.route("/", methods=["GET"])
@@ -1033,6 +1024,7 @@ def home():
     return jsonify({
         "message": "AI Quiz Backend API",
         "version": "1.0.0",
+        "auth": "JWT Bearer Token",
         "ai_model": "OpenAI GPT-OSS 120B (via Groq)",
         "endpoints": {
             "auth": ["/api/signup", "/api/login", "/api/logout", "/api/forgot-password", "/api/reset-password"],
@@ -1060,13 +1052,14 @@ if __name__ == "__main__":
     print(f"📍 Server URL: http://127.0.0.1:5000")
     print(f"🏥 Health Check: http://127.0.0.1:5000/health")
     print(f"🤖 AI Model: OpenAI GPT-OSS 120B (via Groq)")
+    print(f"🔐 Authentication: JWT Bearer Token")
     print("=" * 70)
     print("✅ Features:")
     print("   • Dynamic AI-generated questions using GPT-OSS 120B")
     print("   • Secure login/signup with DynamoDB")
+    print("   • JWT token-based authentication")
     print("   • Static password reset flow (no email)")
     print("   • Quiz history tracking")
-    print("   • Session-based authentication")
     print("   • Email results delivery")
     print("=" * 70)
     print("📝 API Endpoints:")
@@ -1075,11 +1068,11 @@ if __name__ == "__main__":
     print("   POST /api/logout")
     print("   POST /api/forgot-password")
     print("   POST /api/reset-password")
-    print("   POST /api/start-quiz")
+    print("   POST /api/start-quiz (requires JWT)")
     print("   POST /api/answer/<quiz_id>")
     print("   POST /api/submit/<quiz_id>")
-    print("   GET  /api/quiz-history")
-    print("   GET  /api/current-user")
+    print("   GET  /api/quiz-history (requires JWT)")
+    print("   GET  /api/current-user (requires JWT)")
     print("=" * 70)
     
     app.run(debug=False, port=5000, host="0.0.0.0")
