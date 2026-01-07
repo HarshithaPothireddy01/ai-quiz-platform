@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const Instructions = ({ user, onStartExam, onLogout }) => {
   const [topic, setTopic] = useState('');
@@ -31,7 +30,7 @@ const Instructions = ({ user, onStartExam, onLogout }) => {
     try {
       const token = localStorage.getItem('token');
 
-      const response = await fetch(`${API_URL}/api/start-quiz`, {
+      const response = await fetch(`/api/start-quiz`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
