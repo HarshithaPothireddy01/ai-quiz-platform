@@ -2,7 +2,7 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
-  "proxy": "https://ai-quiz-platform-3p91.onrender.com"
+  "proxy": "https://ai-quiz-platform-3p91.onrender.com",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
