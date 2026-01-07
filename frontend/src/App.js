@@ -24,29 +24,36 @@ function App() {
   }, []);
 
   const checkAuthStatus = async () => {
-    try {
-      const token = localStorage.getItem('token');
-
-      const response = await fetch(`${API_URL}/api/current-user`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-        setCurrentStep('instructions');
-      }
-    } catch (error) {
-      console.log('Not logged in');
-    } finally {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
       setLoading(false);
+      return;
     }
-  };
+    
+    const response = await fetch(`${API_URL}/api/current-user`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (response.ok) {
+      const userData = await response.json();
+      setUser(userData);
+      setCurrentStep('instructions');
+    } else {
+      localStorage.removeItem('token');
+    }
+  } catch (error) {
+    console.log('Not logged in');
+    localStorage.removeItem('token');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
