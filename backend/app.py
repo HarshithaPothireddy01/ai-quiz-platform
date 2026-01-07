@@ -26,7 +26,7 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-this-in-producti
 # Configure CORS to allow credentials from React frontend on port 5000
 CORS(app, 
      supports_credentials=True,
-     origins=["http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],
+     origins=["http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001","https://melodic-taiyaki-3cdf72.netlify.app/"],
      allow_headers=["Content-Type", "Authorization"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
