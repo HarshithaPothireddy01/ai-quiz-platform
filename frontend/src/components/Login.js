@@ -56,6 +56,7 @@ const Login = ({ onLogin }) => {
     try {
       const response = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           email: loginData.email, 
@@ -94,6 +95,7 @@ const Login = ({ onLogin }) => {
     try {
       const response = await fetch(`${API_URL}/api/signup`, {
         method: 'POST',
+        credentials: 'include',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
