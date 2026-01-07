@@ -157,7 +157,7 @@ const ExamInterface = ({ user, examData, onComplete }) => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${/api/submit/${examData.quiz_id}`, {
+     const response = await fetch(`/api/submit/${examData.quiz_id}`, {
         method: 'POST',
         credentials: 'include',
         headers: {
